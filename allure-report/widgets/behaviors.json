@@ -1,0 +1,1 @@
+{"total":9,"items":[{"uid":"e167043273a44e46d650aca4e13b7e2c","name":"Account Information Verification","statistic":{"failed":0,"broken":0,"skipped":0,"passed":1,"unknown":0,"total":1}},{"uid":"18a915d53133f4457c1f1bef4a55b114","name":"API Request Validation","statistic":{"failed":0,"broken":0,"skipped":0,"passed":1,"unknown":0,"total":1}}]}

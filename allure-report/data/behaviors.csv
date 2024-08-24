@@ -1,0 +1,4 @@
+"BROKEN","EPIC","FAILED","FEATURE","PASSED","SKIPPED","STORY","UNKNOWN"
+"0","","0","","7","0","","0"
+"0","","0","Account Information Verification","3","0","Verify account information for multiple customers","0"
+"0","","0","API Request Validation","4","0","Verify account ID returns correct response","0"
