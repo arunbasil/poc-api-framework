@@ -14,6 +14,8 @@ import io.restassured.response.Response;
 import io.qameta.allure.Allure;
 import io.qameta.allure.Description;
 import io.qameta.allure.Step;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import model.GetNameSharingRequest.AccountResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class JointSharingSteps {
     private Response response;
     private static ApiClient apiClient;
+    private AccountResponse accountResponse;
 
     @BeforeAll
     public static void setup() {
@@ -51,6 +54,14 @@ public class JointSharingSteps {
                 .statusCode(200)
                 .extract()
                 .response();
+        // Map the response to the AccountResponse model
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            accountResponse = mapper.readValue(response.getBody().asString(), AccountResponse.class);
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("Failed to map the response to AccountResponse model.");
+        }
 
         // Attach the response body to the Allure report
         attachResponseBody(response.getBody().asString());
@@ -60,7 +71,8 @@ public class JointSharingSteps {
     @Description("This step verifies that the joint customer number in the response matches the expected value.")
     @Then("^the joint customer number corresponds to \"([^\"]*)\"$")
     public void verifyJointCustomerNumber(String expectedJointCustomerNumber) {
-        String actualJointCustomerNumber = response.jsonPath().getString("customerNumber");
+//        String actualJointCustomerNumber = response.jsonPath().getString("customerNumber");
+        String actualJointCustomerNumber = accountResponse.customerNumber();;
         assertEquals(expectedJointCustomerNumber, actualJointCustomerNumber, "Joint customer number did not match!");
     }
 
@@ -68,7 +80,8 @@ public class JointSharingSteps {
     @Description("This step verifies that the account number in the response matches the expected value.")
     @And("^the account number corresponds to \"([^\"]*)\"$")
     public void verifyAccountNumber(String expectedAccountNumber) {
-        String actualAccountNumber = response.jsonPath().getString("account.accountNumber");
+//        String actualAccountNumber = response.jsonPath().getString("account.accountNumber");
+        String actualAccountNumber = accountResponse.account().accountNumber();
         assertEquals(expectedAccountNumber, actualAccountNumber, "Account number did not match!");
     }
 
@@ -76,7 +89,8 @@ public class JointSharingSteps {
     @Description("This step verifies that the formatted account number in the response matches the expected value.")
     @And("^the formatted account number corresponds to \"([^\"]*)\"$")
     public void verifyFormattedAccountNumber(String expectedFormattedAccountNumber) {
-        String actualFormattedAccountNumber = response.jsonPath().getString("account.accountNumberFormatted");
+//        String actualFormattedAccountNumber = response.jsonPath().getString("account.accountNumberFormatted");
+        String actualFormattedAccountNumber = accountResponse.account().accountNumberFormatted();;
         assertEquals(expectedFormattedAccountNumber, actualFormattedAccountNumber, "Formatted account number did not match!");
     }
 
@@ -85,7 +99,8 @@ public class JointSharingSteps {
     @Then("the following customer details are correct:")
     public void verifyCustomerDetails(DataTable customerDetails) {
         List<Map<String, String>> detailsList = customerDetails.asMaps(String.class, String.class);
-        List<JsonNode> accountNames = response.jsonPath().getList("accountNames", JsonNode.class);
+//        List<JsonNode> accountNames = response.jsonPath().getList("accountNames", JsonNode.class);
+        var accountNames = accountResponse.accountNames();
 
         int detailsCount = detailsList.size();
         int accountNamesCount = accountNames.size();
@@ -103,8 +118,9 @@ public class JointSharingSteps {
             }
 
             // Safely get and trim the actual values from JSON
-            String actualCustomerNumber = accountNames.get(j).get("customerNumber").asText().trim();
-            String actualAccountName = accountNames.get(j).get("accountName").asText().trim();
+            String actualCustomerNumber = accountNames.get(j).customerNumber().trim();
+            String actualAccountName = accountNames.get(j).accountName().trim();
+
 
             // Perform the assertions
             assertEquals(expectedCustomerNumber, actualCustomerNumber, "Customer number did not match at index " + j);
