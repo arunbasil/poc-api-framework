@@ -40,3 +40,30 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+# Ignore Allure reports
+allure-results/
+allure-report/
+
+# Ignore OS-specific files
+Thumbs.db
+
+# Ignore build artifacts
+/build/
+dist/
+target/
+
+# Ignore IntelliJ IDEA files
+.idea/
+
+
+# Ignore Gradle files
+.gradle/
+
+# Ignore node_modules if using Node.js
+node_modules/
+
+# Ignore logs and temporary files
+*.log
+tmp/
+*.tmp
