@@ -88,6 +88,3 @@ This API automation framework is designed to test and verify the functionalities
    Execute tests as described above to validate your new test cases.
 
 ---
-
-This README file should provide a solid foundation for understanding and using your API automation framework. You can further customize it as needed based on your specific project requirements.
-
