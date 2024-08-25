@@ -108,6 +108,7 @@ public class JointSharingSteps {
     @Then("the following customer details are correct:")
     public void verifyCustomerDetails(DataTable customerDetails) {
         List<Map<String, String>> detailsList = customerDetails.asMaps(String.class, String.class);
+
         var accountNames = accountResponse.accountNames();
 
         int detailsCount = detailsList.size();
@@ -165,3 +166,4 @@ public class JointSharingSteps {
         return responseBody;
     }
 }
+// TODO: 24/08/2024 - Create Excel helper function 
