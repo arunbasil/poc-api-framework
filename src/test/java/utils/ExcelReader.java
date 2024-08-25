@@ -7,10 +7,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.Path;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -18,42 +16,29 @@ public class ExcelReader {
 
     private static final Logger logger = LoggerFactory.getLogger(ExcelReader.class);
 
-    public static List<Map<String, String>> getDataFromExcel(String filePath, String sheetName) {
+    public static List<Map<String, String>> getDataFromExcel(Path filePath, String sheetName) {
         List<Map<String, String>> data = new ArrayList<>();
 
-        try (FileInputStream file = new FileInputStream(filePath);
-             XSSFWorkbook workbook = new XSSFWorkbook(file)) {
+        try (var file = new FileInputStream(filePath.toFile());
+             var workbook = new XSSFWorkbook(file)) {
 
-            Sheet sheet = workbook.getSheet(sheetName);
-            if (sheet == null) {
-                throw new IllegalArgumentException("Sheet with name " + sheetName + " does not exist in the Excel file.");
-            }
+            var sheet = Optional.ofNullable(workbook.getSheet(sheetName))
+                    .orElseThrow(() -> new IllegalArgumentException("Sheet with name " + sheetName + " does not exist in the Excel file."));
 
-            Row headerRow = sheet.getRow(0);
-            if (headerRow == null) {
-                throw new IllegalArgumentException("Header row is missing in the sheet " + sheetName);
-            }
+            var headerRow = Optional.ofNullable(sheet.getRow(0))
+                    .orElseThrow(() -> new IllegalArgumentException("Header row is missing in the sheet " + sheetName));
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
+                var row = sheet.getRow(i);
                 if (row == null) continue;
 
-                Map<String, String> rowData = new HashMap<>();
+                var rowData = new HashMap<String, String>();
                 for (int j = 0; j < headerRow.getLastCellNum(); j++) {
-                    Cell cell = row.getCell(j);
-                    String cellValue = "";
+                    var cell = row.getCell(j);
+                    var cellValue = getCellValue(cell);
 
-                    if (cell != null) {
-                        cellValue = switch (cell.getCellType()) {
-                            case STRING -> cell.getStringCellValue();
-                            case NUMERIC -> String.valueOf((long) cell.getNumericCellValue());
-                            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
-                            default -> "";
-                        };
-                    }
-
-                    String header = headerRow.getCell(j).getStringCellValue();
-                    rowData.put(header, cellValue != null ? cellValue.trim() : "");
+                    var header = headerRow.getCell(j).getStringCellValue();
+                    rowData.put(header, cellValue.trim());
                 }
                 data.add(rowData);
             }
@@ -63,5 +48,17 @@ public class ExcelReader {
         }
 
         return data;
+    }
+
+    private static String getCellValue(Cell cell) {
+        if (cell == null) return "";
+
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> String.valueOf((long) cell.getNumericCellValue());
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            case FORMULA -> cell.getCellFormula();
+            default -> "";
+        };
     }
 }

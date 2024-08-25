@@ -1,5 +1,5 @@
 Feature: Account Information Verification
-  @getNameforsharing
+
   Scenario Outline: Verify account information for multiple customers
     Given a name sharing request is made for account "<accountNumber1>"
     Then the joint customer number corresponds to "<jointCustomerNumber>"

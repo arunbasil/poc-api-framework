@@ -17,10 +17,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import utils.ExcelReader;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static io.restassured.RestAssured.given;
@@ -30,12 +30,13 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class JointSharingExcelSteps {
 
     private static final Logger logger = LoggerFactory.getLogger(JointSharingSteps.class);
+    private static final String BASE_URI = "http://localhost:8081/verifyAccount";
 
     private Response response;
-    private static ApiClient apiClient;
+
     private AccountResponse accountResponse;
     private List<Map<String, String>> excelData;
-    private List<String> errors = new ArrayList<>();
+    private final List<String> errors = new ArrayList<>();
 
     @BeforeAll
     public static void setup() {
@@ -50,9 +51,10 @@ public class JointSharingExcelSteps {
         WireMockServerManager.stopWireMockServer();
     }
 
-    @Given("^data is loaded from excel \"([^\"]*)\" and sheet \"([^\"]*)\"$")
+    @Given("data is loaded from excel {string} and sheet {string}")
     public void loadDataFromExcel(String filePath, String sheetName) {
-        excelData = ExcelReader.getDataFromExcel(filePath, sheetName);
+        var path = Paths.get(filePath);
+        excelData = ExcelReader.getDataFromExcel(path, sheetName);
         logger.info("Data loaded from Excel: {} rows", excelData.size());
     }
 
@@ -60,17 +62,8 @@ public class JointSharingExcelSteps {
     public void performAccountVerification() {
         for (int rowIndex = 0; rowIndex < excelData.size(); rowIndex++) {
             Map<String, String> data = excelData.get(rowIndex);
-            String accountNumber1 = data.get("accountNumber1");
-            String expectedJointCustomerNumber = data.get("jointCustomerNumber");
-            String expectedAccountNumber = data.get("accountNumber");
-            String expectedFormattedAccountNumber = data.get("formattedAccountNumber");
 
-            sendAccountVerificationRequest(accountNumber1);
-
-            verifyJointCustomerNumber(expectedJointCustomerNumber, rowIndex + 1);
-            verifyAccountNumber(expectedAccountNumber, rowIndex + 1);
-            verifyFormattedAccountNumber(expectedFormattedAccountNumber, rowIndex + 1);
-            verifyCustomerDetails(data, rowIndex + 1);
+            verifyAllAccountDetails(data, rowIndex + 1);
         }
 
         if (!errors.isEmpty()) {
@@ -79,12 +72,24 @@ public class JointSharingExcelSteps {
         }
     }
 
+    @Step("Verify all account details for account {accountNumber1}")
+    private void verifyAllAccountDetails(Map<String, String> data, int rowIndex) {
+        String accountNumber1 = data.get("accountNumber1");
+
+        sendAccountVerificationRequest(accountNumber1);
+
+        verifyJointCustomerNumber(data.get("jointCustomerNumber"), rowIndex);
+        verifyAccountNumber(data.get("accountNumber"), rowIndex);
+        verifyFormattedAccountNumber(data.get("formattedAccountNumber"), rowIndex);
+        verifyCustomerDetails(data, rowIndex);
+    }
+
     @Step("Send a name sharing request for account: {accountNumber1}")
     @Description("This step sends a request to verify the account information based on the account number.")
     private void sendAccountVerificationRequest(String accountNumber1) {
         try {
             response = given()
-                    .baseUri("http://localhost:8081/verifyAccount")
+                    .baseUri(BASE_URI)
                     .header("Content-Type", "application/json")
                     .when()
                     .get("/%s".formatted(accountNumber1))
@@ -95,16 +100,13 @@ public class JointSharingExcelSteps {
 
             logger.info("Request sent successfully for account: {}", accountNumber1);
 
-            // Map the response to the AccountResponse model
             ObjectMapper mapper = new ObjectMapper();
-            accountResponse = mapper.readValue(response.getBody().asString(), AccountResponse.class);
-
+             accountResponse = mapper.readValue(response.getBody().asString(), AccountResponse.class);
         } catch (Exception e) {
             logger.error("Failed to send request or map the response for account: {}", accountNumber1, e);
             fail("Failed to map the response to AccountResponse model.");
         }
 
-        // Attach the response body to the Allure report
         attachResponseBody(response.getBody().asString());
     }
 
@@ -142,30 +144,25 @@ public class JointSharingExcelSteps {
         for (int i = 1; i <= 4; i++) {
             String expectedCustomerNumber = data.get("customerNumber" + i);
             String expectedAccountName = data.get("accountName" + i);
-
+//         Check excel for empty or null, if found will exit the loop
             if (expectedCustomerNumber == null || expectedCustomerNumber.isEmpty() ||
                     expectedAccountName == null || expectedAccountName.isEmpty()) {
                 continue;
             }
 
-            boolean matched = false;
-            for (var accountName : accountResponse.accountNames()) {
-                if (accountName.customerNumber().equals(expectedCustomerNumber)) {
-                    if (!expectedAccountName.equals(accountName.accountName())) {
-                        errors.add(String.format("Row %d: Mismatch for customer number %s: Expected account name %s but found %s",
-                                rowIndex, expectedCustomerNumber, expectedAccountName, accountName.accountName()));
-                    } else {
-                        logger.info("Verified customer number {} has name {}", expectedCustomerNumber, expectedAccountName);
-                    }
-                    matched = true;
-                    break;
-                }
-            }
+            var accountNameMap = accountResponse.accountNames().stream()
+                    .collect(Collectors.toMap(AccountName::customerNumber, AccountName::accountName));
 
-            if (!matched) {
-                errors.add(String.format("Row %d: Expected customer number %s not found. Available customer numbers in response: %s",
-                        rowIndex, expectedCustomerNumber,
-                        accountResponse.accountNames().stream().map(AccountName::customerNumber).collect(Collectors.joining(", "))));
+            String actualAccountName = accountNameMap.get(expectedCustomerNumber);
+
+            if (actualAccountName == null) {
+                errors.add(String.format("Row %d: Expected customer number %s not found. Available customer numbers: %s",
+                        rowIndex, expectedCustomerNumber, accountNameMap.keySet()));
+            } else if (!expectedAccountName.equals(actualAccountName)) {
+                errors.add(String.format("Row %d: Mismatch for customer number %s: Expected account name %s but found %s",
+                        rowIndex, expectedCustomerNumber, expectedAccountName, actualAccountName));
+            } else {
+                logger.info("Verified customer number {} has name {}", expectedCustomerNumber, expectedAccountName);
             }
         }
     }
